@@ -7,6 +7,7 @@ package graphviz
 import (
 	"fmt"
 	"io"
+	"os/exec"
 )
 
 // Graph represents a set of nodes, edges and attributes that can be
@@ -21,6 +22,11 @@ type Graph struct {
 	drawMultiEdges  bool
 	directed        bool
 	sameRank        [][]*node
+}
+
+// SetTitle sets a title for the graph.
+func (g *Graph) SetTitle(title string) {
+	g.GraphAttribute("label", title)
 }
 
 // AddNode adds a new node with the given label and returns its id.
@@ -143,6 +149,29 @@ func (g Graph) GenerateDOT(w io.Writer) {
 		fmt.Fprintln(w)
 	}
 	fmt.Fprintln(w, "}")
+}
+
+// GenerateImage runs a Graphviz tool such as dot or neato to generate
+// an image of the graph. filetype can be any file type supported by
+// the tool, e.g. png or svg
+func (g Graph) GenerateImage(tool, filename, filetype string) error {
+	var args []string
+	if filetype != "" {
+		args = append(args, "-T"+filetype)
+	}
+	if filename != "" {
+		args = append(args, "-o", filename)
+	}
+	cmd := exec.Command(tool, args...)
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		return err
+	}
+	go func() {
+		defer stdin.Close()
+		g.GenerateDOT(stdin)
+	}()
+	return cmd.Run()
 }
 
 type attributes struct {
